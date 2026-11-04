@@ -1,0 +1,892 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A tiny beer taproom: pour the perfect pint, explore beer colour, and brew imaginary kegs.">
+<meta name="theme-color" content="#1d120b">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%BA%3C/text%3E%3C/svg%3E">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} body{margin:0} img{max-width:100%} [hidden]{display:none!important}</style>
+<title>The Foam Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shrikhand&family=Figtree:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: a cellar taproom. The pour station is the hero; a colour scale and a tap-list toy follow below. */
+:root {
+  --cellar: #1d120b;      /* page ground: dark oak */
+  --plank: #2a1a10;       /* raised surfaces */
+  --plank-2: #3a2416;     /* borders, rails */
+  --cream: #f6e9d2;       /* text, foam */
+  --cream-dim: #c9b393;   /* secondary text */
+  --amber: #f2a93b;       /* accent: the beer itself */
+  --brass: #d9b45f;       /* tap fittings, highlights */
+  --good: #8fcf7a;
+  --bad: #ef7c62;
+  --font-display: "Shrikhand", "Cooper Black", Georgia, serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { background: var(--cellar); }
+body {
+  color: var(--cream);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 2px, transparent 2px 120px),
+    radial-gradient(ellipse at 50% -10%, rgba(242,169,59,0.14), transparent 60%);
+}
+.wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 56px; }
+
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(2.6rem, 7vw, 4.4rem);
+  line-height: 0.95;
+  margin: 0;
+  color: var(--amber);
+  text-shadow: 0 3px 0 #7a3f0c;
+  letter-spacing: 0.01em;
+}
+.tagline { margin: 6px 0 0; color: var(--cream-dim); max-width: 46ch; }
+.chalk {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--cream-dim);
+  border: 1px dashed var(--plank-2);
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.7rem, 4vw, 2.2rem);
+  margin: 0 0 6px;
+  color: var(--cream);
+  text-wrap: balance;
+}
+.lede { margin: 0; color: var(--cream-dim); max-width: 62ch; }
+.label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--cream-dim);
+}
+
+/* ---------- pour station ---------- */
+.station {
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+@media (max-width: 760px) { .station { grid-template-columns: minmax(0, 1fr); } }
+.stage {
+  background: linear-gradient(#24170e, #170e08);
+  border: 1px solid var(--plank-2);
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  max-width: 100%;
+}
+canvas#pour { display: block; width: 100%; height: auto; aspect-ratio: 400 / 480; touch-action: none; cursor: ew-resize; }
+.order {
+  display: grid; gap: 4px;
+  padding: 18px 20px;
+  background: var(--plank);
+  border: 1px solid var(--plank-2);
+  border-radius: 12px;
+}
+.order .style { font-family: var(--font-display); font-size: 1.6rem; line-height: 1.1; color: var(--amber); }
+.order p { margin: 4px 0 0; color: var(--cream-dim); }
+.side { display: grid; gap: 18px; min-width: 0; }
+@media (max-width: 760px) {
+  /* on phones keep the pour controls right under the glass */
+  .side > .controls { order: 1; }
+  .side > .gauges { order: 2; }
+  .side > .verdict { order: 3; }
+  .side > .order { order: 4; }
+  .side > .tally { order: 5; }
+  .hint.keys { display: none; }
+  #pourBtn { flex: 1 1 100%; padding-block: 18px; font-size: 1.1rem; }
+}
+.gauges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.gauge { background: var(--plank); border: 1px solid var(--plank-2); border-radius: 10px; padding: 10px 12px; }
+.gauge b { display: block; font-family: var(--font-mono); font-size: 1.25rem; font-variant-numeric: tabular-nums; color: var(--cream); }
+.gauge small { color: var(--cream-dim); font-size: 0.78rem; }
+.controls { display: grid; gap: 14px; }
+.tilt-row { display: grid; gap: 6px; }
+.lid { display: grid; gap: 6px; justify-items: start; border-top: 1px dashed var(--plank-2); padding-top: 12px; }
+button.on-lid, button.on-lid:hover { background: var(--brass); color: #2a1404; }
+input[type="range"] { width: 100%; accent-color: var(--amber); }
+.btns { display: flex; flex-wrap: wrap; gap: 10px; }
+button {
+  font: inherit;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 12px 22px;
+  border: 2px solid var(--brass);
+  background: transparent;
+  color: var(--cream);
+  cursor: pointer;
+  transition: transform .08s ease, background .15s ease;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+button:hover { background: rgba(217,180,95,0.12); }
+button:active { transform: translateY(1px); }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
+button.primary { background: var(--amber); border-color: var(--amber); color: #2a1404; }
+button.primary:hover { background: #ffbb55; }
+button.primary.on { background: #ffd27f; box-shadow: 0 0 0 6px rgba(242,169,59,0.25); }
+button[disabled] { opacity: 0.4; cursor: not-allowed; }
+.hint { font-size: 0.86rem; color: var(--cream-dim); margin: 0; }
+kbd { font-family: var(--font-mono); font-size: 0.78rem; border: 1px solid var(--plank-2); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--cream); }
+
+.verdict {
+  border-radius: 12px;
+  padding: 16px 20px;
+  border: 2px dashed var(--brass);
+  display: grid; gap: 6px;
+}
+.verdict .score { font-family: var(--font-display); font-size: 2.6rem; line-height: 1; color: var(--amber); }
+.verdict ul { margin: 4px 0 0; padding-left: 18px; color: var(--cream-dim); font-size: 0.92rem; }
+.tally { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.9rem; color: var(--cream-dim); }
+.tally b { color: var(--cream); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- SRM scale ---------- */
+.panel { display: grid; gap: 18px; }
+.srm-grid { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 24px; align-items: center; }
+@media (max-width: 560px) { .srm-grid { grid-template-columns: minmax(0, 1fr); } }
+.swatch-glass {
+  width: 120px; height: 170px;
+  clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%);
+  border-radius: 4px;
+  position: relative;
+  transition: background .25s ease;
+  justify-self: center;
+}
+.swatch-glass::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 22px;
+  background: var(--cream);
+  border-radius: 0 0 40% 40% / 0 0 60% 60%;
+}
+.swatch-glass::after {
+  content: ""; position: absolute; top: 30px; bottom: 10px; left: 18px; width: 8px;
+  background: rgba(255,255,255,0.18); border-radius: 4px;
+}
+.srm-readout { display: grid; gap: 4px; min-width: 0; }
+.srm-readout .big { font-family: var(--font-display); font-size: 1.8rem; line-height: 1.1; }
+.srm-strip { height: 14px; border-radius: 7px; margin-top: 8px; }
+
+/* ---------- tap list ---------- */
+.taplist { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.tapcard {
+  background: var(--plank);
+  border: 1px solid var(--plank-2);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: grid; gap: 6px; align-content: start;
+  min-width: 0;
+}
+.tapcard .nm { font-family: var(--font-display); font-size: 1.3rem; line-height: 1.15; text-wrap: balance; }
+.tapcard .meta { font-family: var(--font-mono); font-size: 0.76rem; color: var(--cream-dim); letter-spacing: 0.04em; }
+.tapcard .note { color: var(--cream-dim); font-size: 0.92rem; margin: 0; }
+.dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 6px; border: 1px solid rgba(255,255,255,0.2); }
+
+footer { color: var(--cream-dim); font-size: 0.85rem; border-top: 1px dashed var(--plank-2); padding-top: 18px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>The Foam Lab</h1>
+      <p class="tagline">A small taproom for experiments in liquid and foam. Pour the order, read the colour, name the next keg.</p>
+    </div>
+    <div class="chalk" id="chalk">On tap today: 5 styles</div>
+  </header>
+
+  <!-- ===== Pour station ===== -->
+  <section class="panel" aria-labelledby="pour-h">
+    <div>
+      <h2 id="pour-h">Perfect Pour</h2>
+      <p class="lede">Hold the tap to pour. Start with the glass tilted so the beer slides down the side, then straighten it to build the head. Foam settles back into beer while you wait, and a tilted glass holds less before it spills.</p>
+    </div>
+    <div class="station">
+      <div class="stage">
+        <canvas id="pour" width="400" height="480" aria-label="Beer glass under a tap. Drag sideways to tilt the glass."></canvas>
+      </div>
+      <div class="side">
+        <div class="order" aria-live="polite">
+          <span class="label">Order ticket</span>
+          <span class="style" id="o-style">Pilsner</span>
+          <p id="o-spec">Fill to the line with a 3.0 cm head.</p>
+        </div>
+        <div class="gauges">
+          <div class="gauge"><small>Head</small><b id="g-head">0.0 cm</b></div>
+          <div class="gauge"><small>Fill</small><b id="g-fill">0%</b></div>
+          <div class="gauge"><small>Spilled</small><b id="g-spill">0 ml</b></div>
+        </div>
+        <div class="controls">
+          <div class="tilt-row">
+            <label class="label" for="tilt">Glass tilt: <span id="tilt-v">40°</span></label>
+            <input type="range" id="tilt" min="0" max="40" step="1" value="40">
+          </div>
+          <div class="btns">
+            <button class="primary" id="pourBtn" type="button">Hold to pour</button>
+            <button id="serveBtn" type="button">Serve it</button>
+            <button id="nextBtn" type="button" hidden>Next order</button>
+          </div>
+          <p class="hint keys">Keyboard: hold <kbd>Space</kbd> to pour, <kbd>←</kbd> <kbd>→</kbd> to tilt, <kbd>Enter</kbd> to serve. On the glass, drag sideways to tilt.</p>
+          <div class="lid" id="phoneBox" hidden>
+            <button id="phoneBtn" type="button">Tilt with your phone</button>
+            <p class="hint" id="phoneMsg">Hold the phone upright, press the button, then roll it to the left to tip the glass. You can also touch the tap to pour.</p>
+          </div>
+          <div class="lid" id="lidBox" hidden>
+            <button id="lidBtn" type="button">Tilt with the lid</button>
+            <p class="hint" id="lidMsg">Uses your MacBook's hinge sensor. Close the screen toward you to tip the glass.</p>
+          </div>
+        </div>
+        <div class="verdict" id="verdict" hidden>
+          <span class="label">Bartender's verdict</span>
+          <span class="score" id="v-score">0</span>
+          <strong id="v-title"></strong>
+          <ul id="v-notes"></ul>
+        </div>
+        <div class="tally">
+          <span>Pints served <b id="t-count">0</b></span>
+          <span>Average <b id="t-avg">–</b></span>
+          <span>Best <b id="t-best">–</b></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SRM ===== -->
+  <section class="panel" aria-labelledby="srm-h">
+    <div>
+      <h2 id="srm-h">What colour is your beer?</h2>
+      <p class="lede">Brewers measure colour in SRM (Standard Reference Method): how much light at 430 nm a sample absorbs. Slide from a pale lager to an opaque imperial stout.</p>
+    </div>
+    <div class="srm-grid">
+      <div class="swatch-glass" id="swatch" aria-hidden="true"></div>
+      <div class="srm-readout">
+        <label class="label" for="srm">SRM <span id="srm-v">4</span></label>
+        <input type="range" id="srm" min="1" max="40" step="1" value="4">
+        <div class="srm-strip" id="srm-strip" aria-hidden="true"></div>
+        <span class="big" id="srm-name">Gold</span>
+        <span id="srm-eg" class="hint">Pilsner, Kölsch, Helles</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Tap list ===== -->
+  <section class="panel" aria-labelledby="tap-h">
+    <div style="display:flex;flex-wrap:wrap;gap:12px 24px;align-items:end;justify-content:space-between">
+      <div>
+        <h2 id="tap-h">Tomorrow's tap list</h2>
+        <p class="lede">The lab brews an imaginary keg every time you ask. Numbers are plausible for the style; the names are not our fault.</p>
+      </div>
+      <button class="primary" id="brewBtn" type="button">Brew three more</button>
+    </div>
+    <div class="taplist" id="taplist"></div>
+  </section>
+
+  <footer>The Foam Lab is a toy. Pour responsibly, and drink water between pints.</footer>
+</div>
+
+<script>
+(() => {
+  // ---------- shared colour table (SRM -> sRGB) ----------
+  const SRM = ["#FFE699","#FFE699","#FFD878","#FFCA5A","#FFBF42","#FBB123","#F8A600","#F39C00","#EA8F00","#E58500","#DE7C00","#D77200","#CF6900","#CB6200","#C35900","#BB5100","#B54C00","#B04500","#A63E00","#A13700","#9B3200","#952D00","#8E2900","#882300","#821E00","#7B1A00","#771900","#701400","#6A0E00","#660D00","#5E0B00","#5A0A02","#600903","#520907","#4C0505","#470606","#440607","#3F0708","#3B0607","#3A070B","#36080A"];
+  const srmColor = s => SRM[Math.max(1, Math.min(40, Math.round(s)))];
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+  };
+  const reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ---------- Perfect Pour ----------
+  const GLASS_CM = 15;          // a nonic pint is about 15 cm tall
+  const GLASS_ML = 568;         // imperial pint
+  const FILL_LINE = 0.94;       // fraction of glass height
+  const STYLES = [
+    { name: "Pilsner",     srm: 3,  head: 3.0, foamy: 1.00, decay: 0.050, foam: "#fbf5e6", note: "Crisp and pale. A proper three-finger crown." },
+    { name: "Hefeweizen",  srm: 5,  head: 4.0, foamy: 1.35, decay: 0.035, foam: "#fdf8ec", note: "Wheat beer foams like mad. Go slow and keep it tilted.", haze: true },
+    { name: "West Coast IPA", srm: 8, head: 2.0, foamy: 0.85, decay: 0.060, foam: "#f9efd8", note: "Two centimetres. Do not drown the hops in foam." },
+    { name: "Irish Red",   srm: 16, head: 1.8, foamy: 0.80, decay: 0.055, foam: "#f3e2c4", note: "Modest head, deep copper body." },
+    { name: "Dry Stout",   srm: 40, head: 1.5, foamy: 0.70, decay: 0.022, foam: "#e8d1aa", note: "Tight tan head. It settles slowly, so be patient." }
+  ];
+
+  const cv = document.getElementById("pour");
+  const ctx = cv.getContext("2d");
+  const W = 400, H = 480;
+  function fitCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return dpr;
+  }
+  let DPR = fitCanvas();
+  window.addEventListener("resize", () => { DPR = fitCanvas(); });
+
+  // glass geometry: origin at rim centre, y grows downward to the base
+  const RIM = { x: 168, y: 148 };
+  const GH = 262, TW = 72, BW = 52, NOZ = { x: 168, y: 104 };
+
+  const el = id => document.getElementById(id);
+  const ui = {
+    style: el("o-style"), spec: el("o-spec"), head: el("g-head"), fill: el("g-fill"), spill: el("g-spill"),
+    tilt: el("tilt"), tiltV: el("tilt-v"), pour: el("pourBtn"), serve: el("serveBtn"), next: el("nextBtn"),
+    verdict: el("verdict"), vScore: el("v-score"), vTitle: el("v-title"), vNotes: el("v-notes"),
+    tCount: el("t-count"), tAvg: el("t-avg"), tBest: el("t-best")
+  };
+
+  let st;            // game state
+  let styleIdx = 0;
+  let tally = store.get("foamlab.tally", { n: 0, sum: 0, best: null });
+
+  function newOrder(idx) {
+    styleIdx = idx ?? ((styleIdx + 1 + Math.floor(Math.random() * (STYLES.length - 1))) % STYLES.length);
+    const s = STYLES[styleIdx];
+    st = { s, liquid: 0, foam: 0, spilled: 0, tilt: 40, pouring: false, served: false, t: 0, bubbles: [], drips: [], handle: 0 };
+    ui.tilt.value = 40; ui.tiltV.textContent = "40°";
+    ui.style.textContent = s.name;
+    ui.spec.textContent = `Fill to the line with a ${s.head.toFixed(1)} cm head. ${s.note}`;
+    ui.verdict.hidden = true; ui.next.hidden = true;
+    ui.serve.disabled = false; ui.pour.disabled = false;
+    for (let i = 0; i < 26; i++) st.bubbles.push(newBubble(true));
+  }
+  function newBubble(anywhere) {
+    return { u: (Math.random() * 2 - 1) * 0.85, v: anywhere ? Math.random() : 0, r: 0.8 + Math.random() * 1.6, sp: 0.05 + Math.random() * 0.12 };
+  }
+
+  const rad = d => d * Math.PI / 180;
+  // capacity of the glass (fraction of height) before the low rim corner overflows
+  function capacity(tiltDeg) {
+    const t = rad(tiltDeg);
+    return 1 - (TW * Math.tan(t)) / GH;
+  }
+
+  function step(dt) {
+    const s = st.s;
+    st.t += dt;
+    st.handle += ((st.pouring ? 1 : 0) - st.handle) * Math.min(1, dt * 12);
+    if (!st.served) {
+      if (st.pouring) {
+        const flow = 0.105 * dt;                          // ~9.5 s to fill an empty glass
+        const level = st.liquid + st.foam;
+        const fall = 1 - Math.min(1, level);             // longer drop, more agitation
+        const upright = 1 - st.tilt / 40;
+        let frac = s.foamy * (0.06 + 0.62 * upright * upright) * (0.55 + 0.45 * fall);
+        frac = Math.min(0.92, frac);
+        st.liquid += flow * (1 - frac);
+        st.foam += flow * frac * 3.2;                     // foam takes ~3x the volume
+      }
+      // foam collapses back into beer
+      const collapse = st.foam * s.decay * dt;
+      st.foam -= collapse;
+      st.liquid += collapse / 3.2;
+      // overflow
+      const cap = capacity(st.tilt);
+      const over = st.liquid + st.foam - cap;
+      if (over > 0) {
+        const fromFoam = Math.min(st.foam, over);
+        st.foam -= fromFoam;
+        const fromLiq = over - fromFoam;
+        st.liquid -= fromLiq;
+        st.spilled += fromFoam / 3.2 + fromLiq;
+        if (!reduceMotion && Math.random() < 0.7) st.drips.push({ x: 0, y: 0, vy: 30 + Math.random() * 40, vx: -20 - Math.random() * 30, life: 1, fresh: true, foam: fromFoam > fromLiq });
+      }
+    }
+    // bubbles drift up through the liquid (normalised coords)
+    for (const b of st.bubbles) {
+      b.v += b.sp * dt * (st.s.name === "Dry Stout" ? -0.6 : 1); // stout bubbles famously sink near the wall
+      if (b.v > 1 || b.v < 0) Object.assign(b, newBubble(false), { v: b.v > 1 ? 0 : 1 });
+    }
+    for (const d of st.drips) { d.vy += 500 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.life -= dt * 0.9; }
+    st.drips = st.drips.filter(d => d.life > 0);
+  }
+
+  // local glass point -> world
+  function toWorld(lx, ly, t) {
+    const c = Math.cos(-t), sn = Math.sin(-t);
+    return { x: RIM.x + lx * c - ly * sn, y: RIM.y + lx * sn + ly * c };
+  }
+  function halfWidthAt(ly) { return TW + (BW - TW) * (ly / GH); }
+
+  function glassPath() {
+    ctx.beginPath();
+    ctx.moveTo(-TW, 0);
+    ctx.lineTo(TW, 0);
+    ctx.lineTo(BW, GH);
+    ctx.quadraticCurveTo(BW, GH + 6, BW - 6, GH + 6);
+    ctx.lineTo(-BW + 6, GH + 6);
+    ctx.quadraticCurveTo(-BW, GH + 6, -BW, GH);
+    ctx.closePath();
+  }
+
+  function draw() {
+    const s = st.s, t = rad(st.tilt);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    // back wall: brick-ish tiles
+    ctx.fillStyle = "#24160d";
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = "rgba(255,230,190,0.035)";
+    ctx.lineWidth = 1;
+    for (let y = 0; y < H; y += 26) {
+      ctx.beginPath(); ctx.moveTo(0, y + .5); ctx.lineTo(W, y + .5); ctx.stroke();
+      for (let x = (y / 26) % 2 ? 0 : 30; x < W; x += 60) { ctx.beginPath(); ctx.moveTo(x + .5, y); ctx.lineTo(x + .5, y + 26); ctx.stroke(); }
+    }
+    // bar top
+    const barY = 416;
+    const g = ctx.createLinearGradient(0, barY, 0, H);
+    g.addColorStop(0, "#6b3f1f"); g.addColorStop(0.2, "#4a2a14"); g.addColorStop(1, "#2a170b");
+    ctx.fillStyle = g; ctx.fillRect(0, barY, W, H - barY);
+    ctx.fillStyle = "rgba(255,210,140,0.18)"; ctx.fillRect(0, barY, W, 2);
+
+    // tap tower
+    drawTap();
+    // order chalk on the wall, so phones see the target without scrolling
+    ctx.font = "600 12px 'JetBrains Mono', monospace";
+    ctx.textAlign = "right";
+    ctx.fillStyle = "rgba(246,233,210,0.8)";
+    ctx.fillText(s.name.toUpperCase(), W - 14, 24);
+    ctx.fillStyle = "rgba(242,169,59,0.95)";
+    ctx.fillText(`HEAD ${s.head.toFixed(1)} CM`, W - 14, 42);
+    ctx.textAlign = "left";
+
+    // levels in world space
+    const liqH = st.liquid * GH, totH = (st.liquid + st.foam) * GH;
+    const liqPt = toWorld(0, GH - liqH, t);
+    const topPt = toWorld(0, GH - totH, t);
+    const levelY = liqPt.y, foamY = topPt.y;
+
+    // stream
+    if (st.pouring && !st.served) {
+      const endY = Math.min(foamY, toWorld(0, GH, t).y);
+      const wob = Math.sin(st.t * 40) * 0.6;
+      const sg = ctx.createLinearGradient(NOZ.x - 4, 0, NOZ.x + 4, 0);
+      sg.addColorStop(0, srmColor(s.srm)); sg.addColorStop(0.5, "#fff3c8"); sg.addColorStop(1, srmColor(s.srm));
+      ctx.fillStyle = sg;
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(NOZ.x - 3.2 + wob, NOZ.y, 6.4, Math.max(0, endY - NOZ.y));
+      ctx.globalAlpha = 1;
+    }
+
+    // glass contents (clipped)
+    ctx.save();
+    ctx.translate(RIM.x, RIM.y); ctx.rotate(-t);
+    glassPath();
+    ctx.save();
+    ctx.clip();
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    // beer
+    if (st.liquid > 0.001) {
+      const base = srmColor(s.srm);
+      const lg = ctx.createLinearGradient(RIM.x - 90, 0, RIM.x + 90, 0);
+      lg.addColorStop(0, shade(base, -0.25)); lg.addColorStop(0.45, base); lg.addColorStop(0.6, shade(base, 0.15)); lg.addColorStop(1, shade(base, -0.3));
+      ctx.fillStyle = lg;
+      ctx.fillRect(0, levelY, W, H);
+      if (s.haze) { ctx.fillStyle = "rgba(255,240,200,0.18)"; ctx.fillRect(0, levelY, W, H); }
+      // bubbles
+      ctx.fillStyle = s.srm > 30 ? "rgba(210,170,120,0.35)" : "rgba(255,255,240,0.55)";
+      for (const b of st.bubbles) {
+        const ly = GH - b.v * GH;
+        if (GH - ly > liqH) continue;
+        const p = toWorld(b.u * halfWidthAt(ly), ly, t);
+        if (p.y < levelY + 2) continue;
+        ctx.beginPath(); ctx.arc(p.x, p.y, b.r, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    // foam
+    if (st.foam > 0.002) {
+      ctx.fillStyle = s.foam;
+      ctx.beginPath();
+      ctx.moveTo(0, levelY + 1);
+      for (let x = 0; x <= W; x += 6) {
+        const bump = Math.sin(x * 0.11 + st.t * 0.8) * 1.6 + Math.sin(x * 0.27 - st.t * 0.5) * 1.1;
+        ctx.lineTo(x, foamY + bump - 2);
+      }
+      ctx.lineTo(W, levelY + 1);
+      ctx.closePath(); ctx.fill();
+      // creamy boundary
+      const fb = ctx.createLinearGradient(0, levelY - 8, 0, levelY + 2);
+      fb.addColorStop(0, "rgba(255,255,255,0)"); fb.addColorStop(1, shade(s.foam, -0.12));
+      ctx.fillStyle = fb; ctx.fillRect(0, levelY - 8, W, 10);
+      // foam pores
+      ctx.fillStyle = "rgba(0,0,0,0.06)";
+      for (let i = 0; i < 40; i++) {
+        const fx = (i * 53.7) % W, fy = foamY + ((i * 17.3) % Math.max(1, levelY - foamY));
+        ctx.beginPath(); ctx.arc(fx, fy, 1.2 + (i % 3) * 0.6, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.restore();
+
+    // glass body
+    ctx.fillStyle = "rgba(220,235,255,0.06)";
+    glassPath(); ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = "rgba(235,245,255,0.55)";
+    glassPath(); ctx.stroke();
+    // thick base
+    ctx.fillStyle = "rgba(220,235,255,0.14)";
+    ctx.fillRect(-BW + 4, GH - 10, (BW - 4) * 2, 14);
+    // highlight
+    ctx.strokeStyle = "rgba(255,255,255,0.28)"; ctx.lineWidth = 5; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(-TW + 14, 20); ctx.lineTo(-BW + 12, GH - 30); ctx.stroke();
+    // target markings (on the glass, they tilt with it)
+    const fillL = GH - FILL_LINE * GH;
+    const headL = fillL + (s.head / GLASS_CM) * GH;
+    ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(242,169,59,0.9)";
+    const hw1 = halfWidthAt(fillL), hw2 = halfWidthAt(headL);
+    ctx.beginPath(); ctx.moveTo(TW - 2 - (TW - hw1), fillL); ctx.lineTo(hw1 + 12, fillL); ctx.stroke();
+    ctx.strokeStyle = "rgba(246,233,210,0.75)";
+    ctx.beginPath(); ctx.moveTo(hw2 - 26, headL); ctx.lineTo(hw2 + 12, headL); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = "600 10px 'JetBrains Mono', monospace";
+    ctx.fillStyle = "rgba(242,169,59,0.95)";
+    ctx.fillText("FILL", hw1 + 15, fillL + 3.5);
+    ctx.fillStyle = "rgba(246,233,210,0.85)";
+    ctx.fillText("HEAD", hw2 + 15, headL + 3.5);
+    ctx.restore();
+
+    // drips from the low rim corner
+    const lip = toWorld(-TW, 0, t);
+    for (const d of st.drips) {
+      ctx.globalAlpha = Math.max(0, d.life);
+      ctx.fillStyle = d.foam ? s.foam : srmColor(s.srm);
+      ctx.beginPath(); ctx.arc(lip.x + d.x, lip.y + d.y, d.foam ? 3.2 : 2.4, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // puddle
+    if (st.spilled > 0.002) {
+      const pw = Math.min(150, 20 + st.spilled * 900);
+      ctx.fillStyle = srmColor(s.srm);
+      ctx.globalAlpha = 0.55;
+      ctx.beginPath(); ctx.ellipse(lip.x - 6, barY + 4, pw / 2, 4 + Math.min(4, st.spilled * 30), 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawTap() {
+    const s = st.s;
+    // tower
+    ctx.fillStyle = "#b8955a";
+    const tg = ctx.createLinearGradient(110, 0, 230, 0);
+    tg.addColorStop(0, "#7d5f2f"); tg.addColorStop(0.35, "#e6c67e"); tg.addColorStop(0.6, "#c9a35a"); tg.addColorStop(1, "#6e5126");
+    ctx.fillStyle = tg;
+    roundRect(118, 0, 110, 70, 8); ctx.fill();
+    // spout
+    ctx.fillStyle = tg;
+    roundRect(NOZ.x - 34, 62, 44, 18, 6); ctx.fill();
+    roundRect(NOZ.x - 7, 70, 14, 36, 4); ctx.fill();
+    ctx.fillStyle = "#3b2a12"; ctx.fillRect(NOZ.x - 4, 102, 8, 3);
+    // handle (pivots forward when pouring)
+    ctx.save();
+    ctx.translate(196, 66);
+    ctx.rotate(-0.55 * st.handle);
+    ctx.fillStyle = "#1b0f07";
+    roundRect(-13, -64, 26, 64, 8); ctx.fill();
+    ctx.fillStyle = srmColor(s.srm);
+    roundRect(-10, -58, 20, 40, 5); ctx.fill();
+    ctx.fillStyle = s.srm > 25 ? "#f6e9d2" : "#2a1404";
+    ctx.font = "700 8px 'JetBrains Mono', monospace";
+    ctx.save(); ctx.translate(3, -21); ctx.rotate(-Math.PI / 2);
+    ctx.fillText(s.name.split(" ").pop().slice(0, 7).toUpperCase(), 0, 0);
+    ctx.restore();
+    ctx.fillStyle = "#d9b45f"; roundRect(-6, -8, 12, 14, 3); ctx.fill();
+    ctx.restore();
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function shade(hex, amt) {
+    const n = parseInt(hex.slice(1), 16);
+    let r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+    const f = v => Math.round(amt < 0 ? v * (1 + amt) : v + (255 - v) * amt);
+    return `rgb(${f(r)},${f(g)},${f(b)})`;
+  }
+
+  function updateGauges() {
+    const headCm = st.foam * GLASS_CM;
+    const total = st.liquid + st.foam;
+    ui.head.textContent = headCm.toFixed(1) + " cm";
+    ui.fill.textContent = Math.round((total / FILL_LINE) * 100) + "%";
+    ui.spill.textContent = Math.round(st.spilled * GLASS_ML) + " ml";
+  }
+
+  function serve() {
+    if (st.served) return;
+    st.pouring = false; st.served = true;
+    ui.pour.classList.remove("on");
+    const s = st.s;
+    const total = st.liquid + st.foam;
+    const headCm = st.foam * GLASS_CM;
+    const fillErrCm = (total - FILL_LINE) * GLASS_CM;
+    const headErr = headCm - s.head;
+    const spillMl = st.spilled * GLASS_ML;
+    let score = 100 - Math.abs(fillErrCm) * 14 - Math.abs(headErr) * 16 - spillMl * 0.35 - (st.tilt > 8 ? 10 : 0);
+    score = Math.max(0, Math.min(100, Math.round(score)));
+    const notes = [];
+    if (Math.abs(fillErrCm) < 0.4) notes.push("Right on the fill line.");
+    else notes.push(fillErrCm < 0 ? `Short pour, ${Math.abs(fillErrCm).toFixed(1)} cm under the line. The regulars noticed.` : `Over the line by ${fillErrCm.toFixed(1)} cm.`);
+    if (Math.abs(headErr) < 0.4) notes.push(`Head of ${headCm.toFixed(1)} cm. Textbook.`);
+    else if (headErr < 0) notes.push(`Head is ${headCm.toFixed(1)} cm, wanted ${s.head.toFixed(1)}. Straighten the glass sooner to build more foam.`);
+    else notes.push(`Head is ${headCm.toFixed(1)} cm, wanted ${s.head.toFixed(1)}. Pour down the side longer, or let it settle.`);
+    if (spillMl > 3) notes.push(`${Math.round(spillMl)} ml on the bar. Someone fetch a towel.`);
+    if (st.tilt > 8) notes.push("You served it sideways. Straighten the glass before you hand it over.");
+    const title = score >= 92 ? "Cellar master. Frame this pint." : score >= 78 ? "A very respectable pour." : score >= 55 ? "Drinkable. The bartender winces slightly." : score >= 30 ? "That is mostly a glass." : "We are going to pretend that didn't happen.";
+    ui.vScore.textContent = score;
+    ui.vTitle.textContent = title;
+    ui.vNotes.innerHTML = "";
+    notes.forEach(n => { const li = document.createElement("li"); li.textContent = n; ui.vNotes.appendChild(li); });
+    ui.verdict.hidden = false; ui.next.hidden = false;
+    ui.serve.disabled = true; ui.pour.disabled = true;
+    tally.n += 1; tally.sum += score; tally.best = Math.max(tally.best ?? 0, score);
+    store.set("foamlab.tally", tally);
+    renderTally();
+    ui.next.focus({ preventScroll: true });
+  }
+  function renderTally() {
+    ui.tCount.textContent = tally.n;
+    ui.tAvg.textContent = tally.n ? Math.round(tally.sum / tally.n) : "–";
+    ui.tBest.textContent = tally.best ?? "–";
+  }
+
+  function setTilt(v) {
+    if (st.served) return;
+    st.tilt = Math.max(0, Math.min(40, v));
+    ui.tilt.value = Math.round(st.tilt);
+    ui.tiltV.textContent = Math.round(st.tilt) + "°";
+  }
+  function setPour(on) {
+    if (st.served) on = false;
+    st.pouring = on;
+    ui.pour.classList.toggle("on", on);
+    ui.pour.textContent = on ? "Pouring…" : "Hold to pour";
+  }
+
+  // controls
+  ui.tilt.addEventListener("input", () => setTilt(+ui.tilt.value));
+  ui.pour.addEventListener("pointerdown", e => { e.preventDefault(); ui.pour.setPointerCapture?.(e.pointerId); setPour(true); });
+  ["pointerup", "pointercancel", "lostpointercapture"].forEach(ev => ui.pour.addEventListener(ev, () => setPour(false)));
+  ui.pour.addEventListener("keydown", e => { if (e.key === "Enter") e.preventDefault(); });
+  ui.pour.addEventListener("contextmenu", e => e.preventDefault());
+  ui.serve.addEventListener("click", serve);
+  ui.next.addEventListener("click", () => newOrder());
+  window.addEventListener("keydown", e => {
+    const tag = (e.target.tagName || "").toLowerCase();
+    if (e.code === "Space" && tag !== "input") { e.preventDefault(); if (!e.repeat) setPour(true); }
+    else if (e.key === "ArrowLeft" && tag !== "input") { e.preventDefault(); setTilt(st.tilt + 2); }
+    else if (e.key === "ArrowRight" && tag !== "input") { e.preventDefault(); setTilt(st.tilt - 2); }
+    else if (e.key === "Enter" && tag !== "button") { st.served ? newOrder() : serve(); }
+  });
+  window.addEventListener("keyup", e => { if (e.code === "Space") setPour(false); });
+  window.addEventListener("blur", () => setPour(false));
+
+  // drag on the glass to tilt
+  let drag = null;
+  let tapPointer = null;
+  cv.addEventListener("pointerdown", e => {
+    cv.setPointerCapture(e.pointerId);
+    const r = cv.getBoundingClientRect();
+    const x = (e.clientX - r.left) * W / r.width, y = (e.clientY - r.top) * H / r.height;
+    if (y < 112 && x > 100 && x < 250) { tapPointer = e.pointerId; setPour(true); return; }  // touching the tap pours
+    drag = { x: e.clientX, tilt: st.tilt };
+  });
+  cv.addEventListener("pointermove", e => {
+    if (!drag) return;
+    const scale = W / cv.getBoundingClientRect().width;
+    setTilt(drag.tilt - (e.clientX - drag.x) * scale * 0.25);
+  });
+  ["pointerup", "pointercancel"].forEach(ev => cv.addEventListener(ev, e => {
+    drag = null;
+    if (e.pointerId === tapPointer) { tapPointer = null; setPour(false); }
+  }));
+
+  // ---------- phone tilt (device orientation) ----------
+  const phone = { on: false, base: null, smooth: null };
+  const phoneBox = el("phoneBox"), phoneBtn = el("phoneBtn"), phoneMsg = el("phoneMsg");
+  const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+  if ("DeviceOrientationEvent" in window && hasTouch) phoneBox.hidden = false;
+  function rollOf(e) {
+    // left/right roll relative to the screen, whichever way the phone is turned
+    const a = (screen.orientation && screen.orientation.angle) ?? window.orientation ?? 0;
+    if (a === 90) return e.beta;
+    if (a === -90 || a === 270) return -e.beta;
+    if (a === 180) return -e.gamma;
+    return e.gamma;
+  }
+  function onOrient(e) {
+    if (e.gamma == null) return;
+    const roll = rollOf(e);
+    if (phone.base == null) phone.base = roll;
+    phone.smooth = phone.smooth == null ? roll : phone.smooth + (roll - phone.smooth) * 0.3;
+    if (!st.served) setTilt(Math.max(0, Math.min(40, phone.base - phone.smooth)));
+  }
+  function phoneStop(msg) {
+    phone.on = false;
+    window.removeEventListener("deviceorientation", onOrient);
+    phoneBtn.textContent = "Tilt with your phone"; phoneBtn.classList.remove("on-lid");
+    if (msg) phoneMsg.textContent = msg;
+  }
+  phoneBtn.addEventListener("click", async () => {
+    if (phone.on) return phoneStop("Phone tilt is off. Drag on the glass to tilt it instead.");
+    try {
+      if (typeof DeviceOrientationEvent.requestPermission === "function") {
+        const res = await DeviceOrientationEvent.requestPermission();   // iPhone asks first
+        if (res !== "granted") return phoneStop("Motion access was declined. On iPhone, reload the page and tap Allow.");
+      }
+    } catch { return phoneStop("This browser would not share motion data."); }
+    phone.on = true; phone.base = null; phone.smooth = null;
+    window.addEventListener("deviceorientation", onOrient);
+    phoneBtn.textContent = "Stop phone tilt"; phoneBtn.classList.add("on-lid");
+    phoneMsg.textContent = "Upright is where you held it just now. Roll the phone to the left to tip the glass.";
+    setTimeout(() => { if (phone.on && phone.base == null) phoneStop("No motion data came through. This device may not have a motion sensor."); }, 1500);
+  });
+  const recalibrate = () => { phone.base = null; phone.smooth = null; };
+  el("nextBtn").addEventListener("click", recalibrate);
+
+  // ---------- hinge (lid angle) tilt, only when served by foamlab_hinge.py ----------
+  const lid = { on: false, base: null, src: null, smooth: null };
+  const lidBox = el("lidBox"), lidBtn = el("lidBtn"), lidMsg = el("lidMsg");
+  if (["localhost", "127.0.0.1"].includes(location.hostname)) lidBox.hidden = false;
+  function lidStop(msg) {
+    lid.on = false; lid.src?.close(); lid.src = null;
+    lidBtn.textContent = "Tilt with the lid"; lidBtn.classList.remove("on-lid");
+    if (msg) lidMsg.textContent = msg;
+  }
+  lidBtn.addEventListener("click", () => {
+    if (lid.on) return lidStop("Lid tilt is off. The slider and keys work again.");
+    lid.on = true; lid.base = null; lid.smooth = null;
+    lidBtn.textContent = "Stop lid tilt"; lidBtn.classList.add("on-lid");
+    lidMsg.textContent = "Connecting to the hinge sensor…";
+    lid.src = new EventSource("/angle");
+    lid.src.onmessage = e => {
+      const d = JSON.parse(e.data);
+      if (d.angle == null) { if (d.error) lidStop(d.error); return; }
+      if (lid.base == null) lid.base = d.angle;          // where the lid is now = upright glass
+      lid.smooth = lid.smooth == null ? d.angle : lid.smooth + (d.angle - lid.smooth) * 0.35;
+      const tilt = Math.max(0, Math.min(40, lid.base - lid.smooth));
+      if (!st.served) setTilt(tilt);
+      lidMsg.textContent = `Lid at ${Math.round(d.angle)}°, glass upright at ${Math.round(lid.base)}°. Close the screen toward you to tip the glass, open it back to straighten.`;
+    };
+    lid.src.onerror = () => lidStop("Lost the hinge sensor. Is foamlab_hinge.py still running?");
+  });
+
+  newOrder(0);
+  renderTally();
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    step(dt); draw(); updateGauges();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ---------- SRM explorer ----------
+  const srmIn = el("srm");
+  const BANDS = [
+    [2, "Straw", "Light lager, Berliner Weisse"],
+    [4, "Gold", "Pilsner, Kölsch, Helles"],
+    [6, "Deep gold", "Hefeweizen, Blonde ale, Saison"],
+    [9, "Amber gold", "Pale ale, West Coast IPA"],
+    [14, "Amber", "Märzen, Vienna lager, ESB"],
+    [19, "Copper", "Irish red, Amber ale, Bock"],
+    [26, "Brown", "Brown ale, Dunkel, Doppelbock"],
+    [34, "Dark brown", "Porter, Schwarzbier"],
+    [40, "Black", "Dry stout, Imperial stout"]
+  ];
+  el("srm-strip").style.background = `linear-gradient(90deg, ${SRM.slice(1).join(",")})`;
+  function renderSrm() {
+    const v = +srmIn.value;
+    const band = BANDS.find(b => v <= b[0]) || BANDS[BANDS.length - 1];
+    el("srm-v").textContent = v;
+    el("srm-name").textContent = band[1];
+    el("srm-name").style.color = v > 30 ? "var(--cream)" : srmColor(Math.max(v, 4));
+    el("srm-eg").textContent = band[2];
+    el("swatch").style.background = `linear-gradient(90deg, ${shade(srmColor(v), -0.2)}, ${srmColor(v)} 45%, ${shade(srmColor(v), -0.3)})`;
+  }
+  srmIn.addEventListener("input", renderSrm);
+  renderSrm();
+
+  // ---------- Tap list generator ----------
+  const ADJ = ["Foggy", "Sleepy", "Velvet", "Rusty", "Midnight", "Grumpy", "Second-Hand", "Tidal", "Lazy", "Copper", "Feral", "Polite", "Thundering", "Quiet", "Haunted", "Unreasonable", "Barnyard", "Lunar", "Tuesday", "Crooked"];
+  const NOUN = ["Lighthouse", "Badger", "Accordion", "Harbour", "Orchard", "Typewriter", "Moth", "Parade", "Canal", "Weathervane", "Pigeon", "Allotment", "Bicycle", "Lantern", "Ferry", "Bassoon", "Goat", "Signal Box", "Hedge", "Toboggan"];
+  const KINDS = [
+    { k: "Pilsner", abv: [4.4, 5.2], ibu: [25, 40], srm: [2, 4] },
+    { k: "Hazy IPA", abv: [6.0, 7.2], ibu: [30, 55], srm: [4, 6] },
+    { k: "West Coast IPA", abv: [6.2, 7.5], ibu: [55, 75], srm: [6, 10] },
+    { k: "Saison", abv: [5.5, 7.0], ibu: [20, 35], srm: [4, 8] },
+    { k: "Amber Ale", abv: [4.8, 6.0], ibu: [25, 40], srm: [11, 17] },
+    { k: "Brown Ale", abv: [4.4, 5.8], ibu: [18, 30], srm: [18, 30] },
+    { k: "Porter", abv: [5.0, 6.5], ibu: [25, 40], srm: [25, 35] },
+    { k: "Oatmeal Stout", abv: [4.5, 6.0], ibu: [25, 40], srm: [30, 40] },
+    { k: "Sour Gose", abv: [4.2, 4.8], ibu: [5, 12], srm: [3, 4] },
+    { k: "Barleywine", abv: [9.5, 12], ibu: [50, 90], srm: [12, 22] }
+  ];
+  const NOTES = ["grapefruit pith", "fresh bread", "a whisper of clove", "toffee", "pine needles", "dark chocolate", "lemon zest", "wet stone", "stone fruit", "roasted coffee", "honey", "toasted oats", "black pepper", "mango", "brown sugar", "sea salt", "dried fig", "rye crackers"];
+  const FINISH = ["Finishes dry and snappy.", "Long, warming finish.", "Clean finish, dangerously easy.", "Bitter enough to make a point.", "Soft and pillowy on the tongue.", "Tart finish that wakes you up."];
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const between = ([a, b]) => a + Math.random() * (b - a);
+  function brewOne() {
+    const kind = pick(KINDS);
+    const srm = Math.round(between(kind.srm));
+    let n1 = pick(NOTES), n2 = pick(NOTES); while (n2 === n1) n2 = pick(NOTES);
+    return {
+      name: `${pick(ADJ)} ${pick(NOUN)}`, kind: kind.k,
+      abv: between(kind.abv).toFixed(1), ibu: Math.round(between(kind.ibu)), srm,
+      note: `Notes of ${n1} and ${n2}. ${pick(FINISH)}`
+    };
+  }
+  function brew() {
+    const box = el("taplist");
+    box.innerHTML = "";
+    for (let i = 0; i < 3; i++) {
+      const b = brewOne();
+      const card = document.createElement("article");
+      card.className = "tapcard";
+      card.innerHTML = `<span class="label"><span class="dot"></span></span><span class="nm"></span><span class="meta"></span><p class="note"></p>`;
+      card.querySelector(".dot").style.background = srmColor(b.srm);
+      card.querySelector(".label").append(b.kind);
+      card.querySelector(".nm").textContent = b.name;
+      card.querySelector(".meta").textContent = `${b.abv}% ABV · ${b.ibu} IBU · SRM ${b.srm}`;
+      card.querySelector(".note").textContent = b.note;
+      box.appendChild(card);
+    }
+  }
+  el("brewBtn").addEventListener("click", brew);
+  brew();
+  el("chalk").textContent = `On tap today: ${STYLES.length} styles`;
+})();
+</script>
+
+</body>
+</html>
